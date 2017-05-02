@@ -22,7 +22,6 @@ import android.webkit.WebResourceResponse;
 import android.util.Log;
 
 public class NiceWebViewClient extends WebViewClient {
-
 	private Activity activity;
 	private WebView target;
 	private String BANK_TID = "";
@@ -43,7 +42,8 @@ public class NiceWebViewClient extends WebViewClient {
 	}
 
 	@Override
-	public boolean shouldOverrideUrlLoading(WebView view, String url) {
+	public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+		String url = request.getUrl().toString();
 
 		if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("javascript:")) {
 			Intent intent = null;
@@ -56,7 +56,7 @@ public class NiceWebViewClient extends WebViewClient {
 
 						intent = new Intent(Intent.ACTION_MAIN);
 	                    intent.setComponent(new ComponentName("com.kftc.bankpay.android","com.kftc.bankpay.android.activity.MainActivity"));
-	                    intent.putExtra("requestInfo",reqParam);
+	                    intent.putExtra("requestInfo", reqParam);
 	                    activity.startActivityForResult(intent,RESCODE);
 
 	                    return true;
@@ -70,6 +70,7 @@ public class NiceWebViewClient extends WebViewClient {
 				Uri uri = Uri.parse(intent.getDataString());
 
 				activity.startActivity(new Intent(Intent.ACTION_VIEW, uri));
+
 				return true;
 			} catch (URISyntaxException ex) {
 				return false;
@@ -137,5 +138,4 @@ public class NiceWebViewClient extends WebViewClient {
 
     	return ret_data.toString();
 	}
-
 }

@@ -6,9 +6,17 @@
   "bugs": {
     "url": "https://github.com/jeongjuwon/react-native-iamport/issues"
   },
-  "dependencies": {},
   "description": "Simple react native i'mport module",
-  "devDependencies": {},
+  "devDependencies": {
+    "babel-eslint": "^7.2.3",
+    "eslint": "^3.19.0",
+    "eslint-config-airbnb": "^14.1.0",
+    "eslint-import-resolver-webpack": "^0.8.1",
+    "eslint-plugin-import": "^2.2.0",
+    "eslint-plugin-jsx-a11y": "^4.0.0",
+    "eslint-plugin-react": "^6.10.3",
+    "eslint-plugin-react-native": "^2.3.2"
+  },
   "homepage": "https://github.com/jeongjuwon/react-native-iamport",
   "keywords": [
     "react",
@@ -28,7 +36,10 @@
   "name": "react-native-iamport",
   "optionalDependencies": {},
   "peerDependencies": {
-    "react-native": ">=0.40"
+    "react": "16.0.0-alpha.6"
+  },
+  "dependencies": {
+    "react-native": "0.43.4"
   },
   "readme": "ERROR: No README data found!",
   "repository": {

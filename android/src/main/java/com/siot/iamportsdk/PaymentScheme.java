@@ -1,7 +1,6 @@
 package com.siot.iamportsdk;
 
 public class PaymentScheme {
-
 	public final static String ISP = "ispmobile"; //	ISP모바일 : ispmobile://TID=nictest00m01011606281506341724
 	public final static String BANKPAY = "kftc-bankpay";
 
@@ -17,4 +16,27 @@ public class PaymentScheme {
 
 	public final static String KAKAO = "kakaotalk";
 	public final static String PACKAGE_KAKAO = "com.kakao.talk";
+
+	/*
+		<string>payco</string>
+		<string>kftc-bankpay</string>
+		<string>ispmobile</string>
+		<string>itms-apps</string>
+		<string>smhyundaiansimclick</string>
+		<string>shinhan-sr-ansimclick</string>
+		<string>smshinhanansimclick</string>
+		<string>ansimclickscard</string>
+		<string>ansimclickipcollect</string>
+		<string>vguardstart</string>
+		<string>samsungpay</string>
+		<string>scardcertiapp</string>
+		<string>lottesmartpay</string>
+		<string>nhappvardansimclick</string>
+		<string>nhallonepayansimclick</string>
+		<string>nonghyupcardansimclick</string>
+		<string>citispay</string>
+		<string>citicardappkr</string>
+		<string>citimobileapp</string>
+		<string>itmss</string>
+	 */
 }

@@ -6,20 +6,20 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.util.Log;
 
 public class KakaoWebViewClient extends WebViewClient {
-
 	private Activity activity;
-
 	public KakaoWebViewClient(Activity activity, WebView target) {
 		this.activity = activity;
 	}
 
 	@Override
-	public boolean shouldOverrideUrlLoading(WebView view, String url) {
+	public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+		String url = request.getUrl().toString();
 
 		if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("javascript:")) {
 			Intent intent = null;

@@ -1,18 +1,40 @@
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:2.3.1'
+    }
+}
+
 apply plugin: 'com.android.library'
 
 android {
-    compileSdkVersion 23
-    buildToolsVersion "23.0.1"
+    compileSdkVersion 25
+    buildToolsVersion "25.0.3"
 
     defaultConfig {
-        minSdkVersion 16
+        minSdkVersion 21
         targetSdkVersion 22
         versionCode 14
         versionName "1.1.10"
     }
 }
 
+repositories {
+    mavenCentral()
+    mavenLocal()
+    jcenter{
+        url "http://jcenter.bintray.com/"
+    }
+    maven {
+        url "$rootDir/../node_modules/react-native/android"
+//        url "$projectDir/../../react-native/android"
+    }
+}
+
 dependencies {
-    compile 'com.facebook.react:react-native:+'
-    provided 'org.jbundle.util.osgi.wrapped:org.jbundle.util.osgi.wrapped.org.apache.http.client:4.1.2'
+    compile fileTree(dir: "libs", include: ["*.jar"])
+    compile "com.facebook.react:react-native:0.43.4"
+    provided "org.jbundle.util.osgi.wrapped:org.jbundle.util.osgi.wrapped.org.apache.http.client:4.1.2"
 }

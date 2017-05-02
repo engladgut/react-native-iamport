@@ -14,15 +14,14 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 
 public class PaycoWebViewClient extends WebViewClient {
-
 	private Activity activity;
-
 	public PaycoWebViewClient(Activity activity, WebView target) {
 		this.activity = activity;
 	}
 
 	@Override
-	public boolean shouldOverrideUrlLoading(WebView view, String url) {
+	public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+		String url = request.getUrl().toString();
 
 		if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("javascript:")) {
 			Intent intent = null;
