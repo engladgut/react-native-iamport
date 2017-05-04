@@ -112,7 +112,6 @@ export default class IAmPort extends Component {
         injectedJavaScript={this.injectPostMessageFetch()}
         onMessage={this.onMessage}
         onShouldStartLoadWithRequest={this.onShouldStartLoadWithRequest}
-        startInLoadingState
       />
     );
   }
