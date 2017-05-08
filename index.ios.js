@@ -53,8 +53,11 @@ export default class IAmPort extends Component {
   };
 
   onMessage = (e) => {
-    const response = JSON.parse(e.nativeEvent.data);
+    if (this.props.onMessage) {
+      this.props.onMessage(e);
+    }
 
+    const response = JSON.parse(e.nativeEvent.data);
     this.props.onPaymentResultReceived && this.props.onPaymentResultReceived(response);
   };
 

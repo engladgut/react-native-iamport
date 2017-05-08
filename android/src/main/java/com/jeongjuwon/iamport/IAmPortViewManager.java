@@ -2,46 +2,41 @@ package com.jeongjuwon.iamport;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.Intent;
-import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.view.ViewGroup.LayoutParams;
-import android.webkit.ConsoleMessage;
 import android.webkit.CookieManager;
-import android.webkit.GeolocationPermissions;
-import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 
-import com.facebook.common.logging.FLog;
-import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.LifecycleEventListener;
-import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.ReadableMap;
-import com.facebook.react.bridge.WritableMap;
-import com.facebook.react.common.ReactConstants;
-import com.facebook.react.common.annotations.VisibleForTesting;
 import com.facebook.react.common.build.ReactBuildConfig;
 import com.facebook.react.module.annotations.ReactModule;
 import com.facebook.react.uimanager.ThemedReactContext;
-import com.facebook.react.uimanager.UIManagerModule;
 import com.facebook.react.uimanager.annotations.ReactProp;
-import com.facebook.react.uimanager.events.Event;
-import com.facebook.react.uimanager.events.EventDispatcher;
 import com.facebook.react.views.webview.ReactWebViewManager;
 import com.facebook.react.views.webview.WebViewConfig;
-import com.facebook.react.views.webview.events.TopLoadingErrorEvent;
-import com.facebook.react.views.webview.events.TopLoadingFinishEvent;
-import com.facebook.react.views.webview.events.TopLoadingStartEvent;
-import com.siot.iamportsdk.KakaoWebViewClient;
-import com.siot.iamportsdk.NiceWebViewClient;
-import com.siot.iamportsdk.PaycoWebViewClient;
 
+import org.apache.http.NameValuePair;
+import org.apache.http.client.utils.URLEncodedUtils;
+
+import java.io.UnsupportedEncodingException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLDecoder;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -54,6 +49,7 @@ public class IAmPortViewManager extends ReactWebViewManager {
     private IAmPortPackage aPackage;
     private Activity activity;
     private WebViewConfig mWebViewConfig;
+    private static final HashMap<WebView, IAmPortLifeCycleEventListener> listenerMap = new HashMap<>();
 
     public IAmPortViewManager() {
         mWebViewConfig = new WebViewConfig() {
@@ -85,67 +81,200 @@ public class IAmPortViewManager extends ReactWebViewManager {
 
     @Override
     protected void addEventEmitters(ThemedReactContext reactContext, WebView view) {
-        debug("addEventEmitters");
         view.setWebViewClient(new IAmPortWebViewClient());
     }
 
-    private static void dispatchEvent(WebView webView, Event event) {
-        ReactContext reactContext = (ReactContext) webView.getContext();
-        EventDispatcher eventDispatcher =
-                reactContext.getNativeModule(UIManagerModule.class).getEventDispatcher();
-        eventDispatcher.dispatchEvent(event);
+    public static Map<String, List<String>> splitQuery(String queries) throws UnsupportedEncodingException {
+        final Map<String, List<String>> queryPairs = new LinkedHashMap<String, List<String>>();
+        final String[] pairs = queries.split("&");
+        for (String pair : pairs) {
+            final int idx = pair.indexOf("=");
+            final String key = idx > 0 ? URLDecoder.decode(pair.substring(0, idx), "UTF-8") : pair;
+
+            if (!queryPairs.containsKey(key)) {
+                queryPairs.put(key, new LinkedList<String>());
+            }
+
+            final String value = idx > 0 && pair.length() > idx + 1 ? URLDecoder.decode(pair.substring(idx + 1), "UTF-8") : null;
+            queryPairs.get(key).add(value);
+        }
+
+        return queryPairs;
     }
 
     protected static class IAmPortWebViewClient extends ReactWebViewClient {
-        private boolean mLastLoadFailed = false;
-
         @Override
-        public void onPageFinished(WebView webView, String url) {
-            debug("onPageFinished");
-            super.onPageFinished(webView, url);
-        }
+        public boolean shouldOverrideUrlLoading(WebView webView, String url) {
+            debug("shouldOverrideUrlLoading - " + url);
 
-        @Override
-        public void onPageStarted(WebView webView, String url, Bitmap favicon) {
-            debug("onPageStarted");
-            super.onPageStarted(webView, url, favicon);
-        }
+            if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("javascript:")) {
+                Intent intent = null;
 
-        @Override
-        public boolean shouldOverrideUrlLoading(WebView view, String url) {
-            debug("shouldOverrideUrlLoading");
-            return super.shouldOverrideUrlLoading(view, url);
+                try {
+                    intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME); //IntentURI처리
+                    Uri uri = Uri.parse(intent.getDataString());
+
+                    webView.getContext().startActivity(new Intent(Intent.ACTION_VIEW, uri)); //해당되는 Activity 실행
+                    return true;
+                } catch (URISyntaxException ex) {
+                    return false;
+                } catch (ActivityNotFoundException e) {
+                    if ( intent == null )   return false;
+
+//                    if ( handleNotFoundPaymentScheme(intent.getScheme()) )  return true; //설치되지 않은 앱에 대해 사전 처리(Google Play이동 등 필요한 처리)
+
+                    String packageName = intent.getPackage();
+                    if (packageName != null) { //packageName이 있는 경우에는 Google Play에서 검색을 기본
+                        webView.getContext().startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + packageName)));
+                        return true;
+                    }
+
+                    return false;
+                }
+            }
+
+            return false;
+
+//            if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("file://") || url.startsWith("javascript:")) {
+//                return false;
+//            } else {
+//                if (url.startsWith("intent://")) {
+//                    try {
+//                        Intent intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+//                        Intent existPackage = webView.getContext().getPackageManager().getLaunchIntentForPackage(intent.getPackage());
+//
+//                        debug("package : " + intent.getPackage());
+//                        debug("scheme : " + intent.getScheme());
+//
+//                        if (existPackage != null) {
+//                            webView.getContext().startActivity(intent);
+//                        } else {
+//                            Intent marketIntent = new Intent(Intent.ACTION_VIEW);
+//                            marketIntent.setData(Uri.parse("market://details?id="+intent.getPackage()));
+//                            webView.getContext().startActivity(marketIntent);
+//                        }
+//
+//                        return true;
+//                    } catch (URISyntaxException e) {
+//                        e.printStackTrace();
+//                    }
+//
+//                    return true;
+//                }
+//
+//                return false;
+//            }
         }
 
         @Override
         public void onReceivedError(WebView webView, int errorCode, String description, String failingUrl) {
-            debug("onReceivedError");
+            debug("onReceivedError - " + failingUrl);
             super.onReceivedError(webView, errorCode, description, failingUrl);
         }
 
-        @Override
-        public void doUpdateVisitedHistory(WebView webView, String url, boolean isReload) {
-            debug("doUpdateVisitedHistory");
-            super.doUpdateVisitedHistory(webView, url, isReload);
+        private boolean handleKakao(Context context, String url) throws ActivityNotFoundException {
+            Intent intent = null;
+
+            try {
+                intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME); //IntentURI처리
+                Uri uri = Uri.parse(intent.getDataString());
+
+                debug("kakao - " + uri.toString());
+
+                context.startActivity(new Intent(Intent.ACTION_VIEW, uri));
+
+                return true;
+            } catch (URISyntaxException ex) {
+                return false;
+            }
         }
 
-        private void emitFinishEvent(WebView webView, String url) {
-            debug("emitFinishEvent( " + webView + ", " + url + " ");
+        private boolean handleNicePay(WebView view, String url) throws ActivityNotFoundException {
+            Intent intent = null;
+            final int RESCODE = 1;
+            Activity activity = getActivity(view);
 
-            TopLoadingFinishEvent event = new TopLoadingFinishEvent(webView.getId(), createWebViewEvent(webView, url));
-            dispatchEvent(webView, event);
+            try {
+            /* START - BankPay(실시간계좌이체)에 대해서는 예외적으로 처리 */
+                if (url.startsWith("kftc-bankpay") && activity != null) {
+                    try {
+                        String reqParam = makeBankPayData(url);
+
+                        intent = new Intent(Intent.ACTION_MAIN);
+                        intent.setComponent(new ComponentName("com.kftc.bankpay.android", "com.kftc.bankpay.android.activity.MainActivity"));
+                        intent.putExtra("requestInfo", reqParam);
+                        activity.startActivityForResult(intent, RESCODE);
+
+                        return true;
+                    } catch (URISyntaxException e) {
+                        return false;
+                    }
+                }
+            /* END - BankPay(실시간계좌이체)에 대해서는 예외적으로 처리 */
+
+                intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME); //IntentURI처리
+                Uri uri = Uri.parse(intent.getDataString());
+
+                activity.startActivity(new Intent(Intent.ACTION_VIEW, uri));
+
+                return true;
+            } catch (URISyntaxException ex) {
+                return false;
+            }
         }
 
-        private WritableMap createWebViewEvent(WebView webView, String url) {
-            WritableMap event = Arguments.createMap();
-            event.putDouble("target", webView.getId());
-            event.putString("url", url);
-            event.putBoolean("loading", !mLastLoadFailed && webView.getProgress() != 100);
-            event.putString("title", webView.getTitle());
-            event.putBoolean("canGoBack", webView.canGoBack());
-            event.putBoolean("canGoForward", webView.canGoForward());
+        private boolean handlePayco(Context context, String url) throws ActivityNotFoundException {
+            Intent intent = null;
 
-            return event;
+            try {
+                intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME); //IntentURI처리
+                Uri uri = Uri.parse(intent.getDataString());
+
+                Log.e("iamport", uri.toString());
+
+                context.startActivity(new Intent(Intent.ACTION_VIEW, uri));
+                return true;
+            } catch (URISyntaxException ex) {
+                return false;
+            }
+        }
+
+        private Activity getActivity(View view) {
+            Context context = view.getContext();
+
+            while (context instanceof ContextWrapper) {
+                if (context instanceof Activity) {
+                    return (Activity) context;
+                }
+                context = ((ContextWrapper) context).getBaseContext();
+            }
+            return null;
+        }
+
+        private String makeBankPayData(String url) throws URISyntaxException {
+            String BANK_TID = "";
+            List<NameValuePair> params = URLEncodedUtils.parse(new URI(url), "UTF-8");
+
+            StringBuilder ret_data = new StringBuilder();
+            List<String> keys = Arrays.asList(new String[]{"firm_name", "amount", "serial_no", "approve_no", "receipt_yn", "user_key", "callbackparam2", ""});
+
+            String k, v;
+            for (NameValuePair param : params) {
+                k = param.getName();
+                v = param.getValue();
+
+                if (keys.contains(k)) {
+                    if ("user_key".equals(k)) {
+                        BANK_TID = v;
+                    }
+                    ret_data.append("&").append(k).append("=").append(v);
+                }
+            }
+
+            ret_data.append("&callbackparam1=" + "nothing");
+            ret_data.append("&callbackparam3=" + "nothing");
+
+            return ret_data.toString();
         }
     }
 
@@ -153,61 +282,46 @@ public class IAmPortViewManager extends ReactWebViewManager {
         private IAmPortViewManager mViewManager;
         public String appScheme;
         public String pg;
-        public ReactWebView view;
+        public ReactWebView webView;
 
-        public IAmPortLifeCycleEventListener(IAmPortViewManager mViewManager, ReactWebView view) {
+        public IAmPortLifeCycleEventListener(IAmPortViewManager mViewManager, ReactWebView webView) {
             this.mViewManager = mViewManager;
-            this.view = view;
-
-            view.getSettings().setBuiltInZoomControls(true);
-            view.getSettings().setDisplayZoomControls(false);
-            view.getSettings().setDomStorageEnabled(true);
-            view.getSettings().setJavaScriptEnabled(true);
-            view.getSettings().setBuiltInZoomControls(false);
-            view.getSettings().setDomStorageEnabled(true);
-            view.getSettings().setGeolocationEnabled(false);
-            view.getSettings().setPluginState(WebSettings.PluginState.ON);
-            view.getSettings().setAllowFileAccess(true);
-            view.getSettings().setAllowFileAccessFromFileURLs(true);
-            view.getSettings().setAllowUniversalAccessFromFileURLs(true);
-            view.getSettings().setLoadsImagesAutomatically(true);
-            view.getSettings().setBlockNetworkImage(false);
-            view.getSettings().setBlockNetworkLoads(false);
+            this.webView = webView;
         }
 
         @Override
         public void onHostResume() {
             Intent intent = activity.getIntent();
 
-            mViewManager.debug("onHostResume - IAmPortWebView : " + intent);
-            mViewManager.debug("view.getProgress() : " + view.getProgress());
-            mViewManager.debug("view.getUrl() : " + view.getUrl());
+            debug("onHostResume - IAmPortWebView : " + intent);
+            debug("webView.getProgress() : " + webView.getProgress());
+            debug("webView.getUrl() : " + webView.getUrl());
 
             if (intent != null) {
                 Uri intentData = intent.getData();
 
-                mViewManager.debug("intentData:" + intentData);
+                debug("intentData:" + intentData);
 
                 //카카오페이 인증 후 복귀했을 때 결제 후속조치
                 if (intentData != null) {
                     String url = intentData.toString();
 
-                    mViewManager.debug("receive URL - " + url);
+                    debug("receive URL - " + url);
 
                     if (url.startsWith(appScheme + "://process")) {
-                        mViewManager.debug("process");
-                        view.loadUrl("javascript:IMP.communicate({result:'process'})");
+                        debug("process");
+                        webView.loadUrl("javascript:IMP.communicate({result:'process'})");
                     } else if (url.startsWith(appScheme + "://cancel")) {
-                        mViewManager.debug("cancel");
-                        view.loadUrl("javascript:IMP.communicate({result:'cancel'})");
+                        debug("cancel");
+                        webView.loadUrl("javascript:IMP.communicate({result:'cancel'})");
                     } else if (url.startsWith(appScheme + "://success")) {
-                        mViewManager.debug("success");
+                        debug("success");
 
                         Uri uri = Uri.parse(url);
                         String imp_uid = uri.getQueryParameter("imp_uid");
                         String merchant_uid = uri.getQueryParameter("merchant_uid");
 
-                        view.onMessage("{\"uri\":" + uri +
+                        webView.onMessage("{\"uri\":" + uri +
                                 ",\"imp_uid\":" + imp_uid +
                                 ", \"merchant_uid\":" + merchant_uid + "}");
                     }
@@ -218,18 +332,6 @@ public class IAmPortViewManager extends ReactWebViewManager {
                     intent.setFlags(0);
                 }
             }
-
-//            ReactContext reactContext = (ReactContext) view.getContext();
-//            EventDispatcher eventDispatcher = reactContext.getNativeModule(UIManagerModule.class).getEventDispatcher();
-//            WritableMap event = Arguments.createMap();
-//            event.putDouble("target", view.getId());
-//            event.putString("url", view.getUrl());
-//            event.putBoolean("loading", view.getProgress() != 100);
-//            event.putString("title", view.getTitle());
-//            event.putBoolean("canGoBack", view.canGoBack());
-//            event.putBoolean("canGoForward", view.canGoForward());
-//
-//            eventDispatcher.dispatchEvent(new TopLoadingFinishEvent(view.getId(), event));
         }
 
         @Override
@@ -238,26 +340,46 @@ public class IAmPortViewManager extends ReactWebViewManager {
 
         @Override
         public void onHostDestroy() {
-            listererMap.remove(this.view);
-            view.onHostDestroy();
+            listenerMap.remove(this.webView);
+            webView.onHostDestroy();
         }
     }
-
-    private final HashMap<WebView, IAmPortLifeCycleEventListener> listererMap = new HashMap<>();
 
     @Override
     public WebView createViewInstance(ThemedReactContext reactContext) {
         WebView webView = super.createViewInstance(reactContext);
         IAmPortLifeCycleEventListener iamport = new IAmPortLifeCycleEventListener(this, (ReactWebView) webView);
 
-        listererMap.put(webView, iamport);
+        listenerMap.put(webView, iamport);
         reactContext.addLifecycleEventListener(iamport);
 
         mWebViewConfig.configWebView(webView);
         activity = reactContext.getCurrentActivity();
         webView.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
-        CookieManager.getInstance().setAcceptCookie(true); // add default cookie support
-        CookieManager.getInstance().setAcceptFileSchemeCookies(true); // add default cookie support
+
+        CookieManager cookieManager = CookieManager.getInstance();
+        cookieManager.setAcceptCookie(true);
+        cookieManager.setAcceptFileSchemeCookies(true);
+
+        if(Build.VERSION.SDK_INT > Build.VERSION_CODES.KITKAT) {
+            webView.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+            CookieManager.getInstance().setAcceptThirdPartyCookies(webView,true);
+        }
+
+        webView.getSettings().setBuiltInZoomControls(true);
+        webView.getSettings().setDisplayZoomControls(false);
+        webView.getSettings().setDomStorageEnabled(true);
+        webView.getSettings().setJavaScriptEnabled(true);
+        webView.getSettings().setBuiltInZoomControls(false);
+        webView.getSettings().setDomStorageEnabled(true);
+        webView.getSettings().setGeolocationEnabled(false);
+        webView.getSettings().setPluginState(WebSettings.PluginState.ON);
+        webView.getSettings().setAllowFileAccess(true);
+        webView.getSettings().setAllowFileAccessFromFileURLs(true);
+        webView.getSettings().setAllowUniversalAccessFromFileURLs(true);
+        webView.getSettings().setLoadsImagesAutomatically(true);
+        webView.getSettings().setBlockNetworkImage(false);
+        webView.getSettings().setBlockNetworkLoads(false);
 
         if (ReactBuildConfig.DEBUG && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
             WebView.setWebContentsDebuggingEnabled(true);
@@ -280,32 +402,23 @@ public class IAmPortViewManager extends ReactWebViewManager {
             setAppScheme(view, params.getString("app_scheme"));
         }
 
-        if (params.hasKey("pg") && listererMap.get(view) != null && listererMap.get(view).pg != null) {
+        if (params.hasKey("pg") && listenerMap.get(view) != null && listenerMap.get(view).pg != null) {
             setPG(view, params.getString("pg"));
         }
     }
 
     @ReactProp(name = "appScheme")
     public void setAppScheme(ReactWebView view, @Nullable String appScheme) {
-        if (listererMap.get(view) != null) {
-            listererMap.get(view).appScheme = appScheme;
+        if (listenerMap.get(view) != null && listenerMap.get(view).appScheme == null) {
+            listenerMap.get(view).appScheme = appScheme;
         }
     }
 
     @ReactProp(name = "pg")
     public void setPG(ReactWebView view, @Nullable String pg) {
-        if (listererMap.get(view) != null && listererMap.get(view).pg == null) {
+        if (listenerMap.get(view) != null && listenerMap.get(view).pg == null) {
             debug("PG - " + pg);
-
-            listererMap.get(view).pg = pg;
-
-//            if (pg.equals("nice")) {
-//                view.setWebViewClient(new NiceWebViewClient(activity, view));
-//            } else if (pg.equals("kakao")) {
-//                view.setWebViewClient(new KakaoWebViewClient(activity, view));
-//            } else if (pg.equals("payco")) {
-//                view.setWebViewClient(new PaycoWebViewClient(activity, view));
-//            }
+            listenerMap.get(view).pg = pg;
         }
     }
 
