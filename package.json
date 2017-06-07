@@ -36,10 +36,8 @@
   "name": "react-native-iamport",
   "optionalDependencies": {},
   "peerDependencies": {
-    "react": "16.0.0-alpha.6"
-  },
-  "dependencies": {
-    "react-native": "0.43.4"
+    "react": "16.0.0-alpha.6",
+    "react-native": "0.44.3"
   },
   "readme": "ERROR: No README data found!",
   "repository": {

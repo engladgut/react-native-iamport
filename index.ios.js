@@ -64,7 +64,7 @@ export default class IAmPort extends Component {
   onShouldStartLoadWithRequest = (e) => {
     const { url } = e;
 
-    console.log('onShouldStartLoadWithRequest', e);
+    // console.log('onShouldStartLoadWithRequest', e);
 
     const impUid = this.getParameterByName('imp_uid', url);
     const merchantUid = this.getParameterByName('merchant_uid', url);
