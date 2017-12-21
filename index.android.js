@@ -1,4 +1,5 @@
-import React, { Component, PropTypes } from 'react';
+import React, { Component } from 'react';
+import PropTypes from 'prop-types';
 import ReactNative, {
   requireNativeComponent,
   DeviceEventEmitter,
@@ -50,8 +51,7 @@ class IAmPort extends Component {
 
   state = {
     viewState: WebViewState.IDLE,
-    lastErrorEvent: null,
-    startInLoadingState: true
+    lastErrorEvent: null
   };
 
   ref = {};
@@ -80,7 +80,8 @@ class IAmPort extends Component {
       otherView = this.props.renderError && this.props.renderError(
         errorEvent.domain,
         errorEvent.code,
-        errorEvent.description);
+        errorEvent.description
+      );
     } else if (this.state.viewState !== WebViewState.IDLE) {
       console.error(`RCTWebView invalid state encountered: ${this.state.loading}`);
     }
@@ -117,7 +118,7 @@ class IAmPort extends Component {
         pg={this.props.pg || this.props.params.pg}
         params={this.props.params}
         appScheme={this.props.params.app_scheme}
-        ref={(ref) => (this.ref[IAMPORT_WEBVIEW_REF] = ref)}
+        ref={(ref) => { this.ref[IAMPORT_WEBVIEW_REF] = ref; }}
         key="webViewKey"
         scalesPageToFit={this.props.scalesPageToFit}
         injectedJavaScript={this.props.injectedJavaScript}
@@ -148,7 +149,7 @@ class IAmPort extends Component {
   }
 
   getPurchasePage() {
-    const params = this.props.params;
+    const { params } = this.props;
     const HTML = `
     <!DOCTYPE html>
     <html>
