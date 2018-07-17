@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { WebView } from 'react-native';
+import { WebView, Linking } from 'react-native';
 
 export default class IAmPort extends Component {
   getPurchasePage = () => {
@@ -76,13 +76,23 @@ export default class IAmPort extends Component {
       } else if (url.includes(`${this.props.params.app_scheme}://cancel`)) {
         result = 'cancel';
       }
+      if (result) {
+        this.props.onPaymentResultReceived({ result, impUid, merchantUid });
+      }
     }
 
-    if (result) {
-      this.props.onPaymentResultReceived({ result, impUid, merchantUid });
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return true;
+    } else {
+      Linking.canOpenURL(url).then(supported => {
+        if (supported) {
+          return Linking.openURL(url);
+        } else {
+          return false;
+        }
+      });
+      return false;
     }
-
-    return true;
   };
 
   /* eslint no-var: 0, func-names: 0 */
@@ -112,6 +122,7 @@ export default class IAmPort extends Component {
         {...this.props}
         style={this.props.style}
         source={source}
+        renderError={(e) => null}
         injectedJavaScript={this.injectPostMessageFetch()}
         onMessage={this.onMessage}
         onShouldStartLoadWithRequest={this.onShouldStartLoadWithRequest}
